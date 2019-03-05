@@ -18,21 +18,6 @@ def get_engine():
 
 app = Flask(__name__)
 
-
-# add query endpoint
-# rename post -> submit
-# add schema option json
-# ssl
-# security token
-# protect vba from view tools -> vba project properties ->
-# truncate if exists else drop and overwrite
-# add info on number of rows columns, schema and table names
-# useful error messages
-# escape chars
-# move to github
-# add documentation
-
-
 @app.route('/post', methods=['POST'])
 def post_route():
     # read data as json
