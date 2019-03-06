@@ -18,7 +18,8 @@ def get_engine():
 
 app = Flask(__name__)
 
-@app.route('/post', methods=['POST'])
+
+@app.route('/submit', methods=['POST'])
 def post_route():
     # read data as json
     data = request.get_json(force=True)
