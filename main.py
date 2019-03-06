@@ -11,7 +11,7 @@ def list_to_matrix(l, n):
 
 
 def get_engine():
-    with open('auth/auth.json') as f:
+    with open('../auth/auth.json') as f:
         db_cred = json.load(f)['db']
     return sqlalchemy.create_engine('redshift://{user}:{password}@{host}:{port}/{dbname}'.format(**db_cred))
 
