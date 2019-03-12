@@ -13,6 +13,7 @@ def list_to_matrix(l, n):
 def get_engine():
     with open('../auth/auth.json') as f:
         db_cred = json.load(f)['db']
+
     return sqlalchemy.create_engine('redshift://{user}:{password}@{host}:{port}/{dbname}'.format(**db_cred))
 
 
@@ -24,8 +25,13 @@ def post_route():
     # read data as json
     data = request.get_json(force=True)
 
-    # print token
-    print(data.get('token'))
+    # load token
+    with open('../auth/auth.json') as f:
+        token = json.load(f)['token']
+
+    # check for valid token
+    if data.get('token') != token:
+        return 'Invalid token\n'
 
     # write json data to csv
     list_data = data['data'].split('\t')
