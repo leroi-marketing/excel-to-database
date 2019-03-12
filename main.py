@@ -24,6 +24,9 @@ def post_route():
     # read data as json
     data = request.get_json(force=True)
 
+    # print token
+    print(data.get('token'))
+
     # write json data to csv
     list_data = data['data'].split('\t')
     data_matrix = list_to_matrix(list_data, data['columns'])
@@ -37,4 +40,6 @@ def post_route():
 
 
 if __name__ == '__main__':
-    app.run(ssl_context='adhoc', host="0.0.0.0", port=5000)
+    app.run(ssl_context='adhoc',
+            host="0.0.0.0",
+            port=5000)
