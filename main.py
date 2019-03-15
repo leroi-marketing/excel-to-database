@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import boto3
 import pandas as pd
 import sqlalchemy
+from sqlalchemy.sql import text
 from flask import Flask, request
 
 with open('../auth/auth.json') as f:
@@ -95,8 +96,7 @@ def post_route():
         connection = engine.connect()
         connection.execute('DROP TABLE IF EXISTS x_excel.{}'.format(table_name))
         connection.execute(generate_table_stmt('x_excel', table_name, header))
-        connection.execute(copy_stmt)
-        connection.close()
+        connection.execute(text(copy_stmt).execution_options(autocommit=True))
         return 'Load into table {table_name} completed, {n_records} records loaded successfully.\n'.format(**locals())
 
     except Exception as e:
