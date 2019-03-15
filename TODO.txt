@@ -1,0 +1,3 @@
+# add query endpoint
+# add info on number of rows columns, schema and table names
+# add documentation
