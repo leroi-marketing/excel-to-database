@@ -71,6 +71,7 @@ def post_route():
         data_matrix = list_to_matrix(list_data, data['columns'])
         header = data_matrix.pop(0)
         df = pd.DataFrame(data_matrix, columns=header)
+        n_records = df.shape[0]
 
         # load to redshift
         table_name = data['name'].lower()
@@ -96,7 +97,7 @@ def post_route():
         connection.execute(generate_table_stmt('x_excel', table_name, header))
         connection.execute(copy_stmt)
         connection.close()
-        return '{} loaded successfully.\n'.format(data['name'])
+        return 'Load into table {table_name} completed, {n_records} records loaded successfully.\n'.format(**locals())
 
     except Exception as e:
         # return any error as a response to the excel macro
