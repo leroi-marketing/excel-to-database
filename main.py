@@ -88,13 +88,13 @@ def post_route():
                     FROM 's3://{bucket}/{key}'
                     iam_role '{arn}'
                     GZIP
-                    delimiter ','
+                    csv
                     COMPUPDATE OFF
                     region 'eu-central-1';'''.format(**locals())
 
         # copy to redshift
         connection = engine.connect()
-        connection.execute('DROP TABLE IF EXISTS x_excel.{}'.format(table_name))
+        connection.execute('DROP TABLE IF EXISTS x_excel.{} CASCADE'.format(table_name))
         connection.execute(generate_table_stmt('x_excel', table_name, header))
         connection.execute(text(copy_stmt).execution_options(autocommit=True))
         return 'Load into table {table_name} completed, {n_records} records loaded successfully.\n'.format(**locals())
