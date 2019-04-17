@@ -1,27 +1,7 @@
 Option Explicit
 
-Private Const host = "https://host:5000"
-Private Const token = "password"
-
-Public Sub query_data()
-
-    Dim response        As String
-    Dim json            As Object
-    Dim columns         As Integer
-    Dim data()          As String
-    Dim ws              As Worksheet
-
-    response = request(host, "query")
-    
-    columns = regExp("""columns"":""([^""]*)""", response)
-    data = Split(regExp("""data"":""([^""]*)""", response), vbTab)
-
-    ActiveWorkbook.Sheets.Add after:=Worksheets(Worksheets.Count)
-    Set ws = Worksheets(Worksheets.Count)
-    write_data ws, columns, data
-    format_header ws, columns
-
-End Sub
+Private Const host = "localhost:5000"
+Private Const token = ""
 
 Public Sub submit_data()
 
@@ -30,6 +10,7 @@ Public Sub submit_data()
     Dim data            As String
     Dim lastCol         As Integer
     Dim lastRow         As Integer
+    Dim builder         As StringBuilder
     Dim i, j            As Integer
     
     With ActiveSheet
@@ -37,10 +18,12 @@ Public Sub submit_data()
         lastRow = .Cells(Rows.Count, "A").End(xlUp).Row
     End With
     
+    Set builder = New StringBuilder
+    
     For i = 1 To lastRow
         For j = 1 To lastCol
-             data = data & ActiveSheet.Cells(i, j)
-             If Not (i = lastRow And j = lastCol) Then data = data & "\t"
+             builder.Append ActiveSheet.Cells(i, j)
+             If Not (i = lastRow And j = lastCol) Then builder.Append ("\t")
         Next j
     Next i
     
@@ -49,11 +32,11 @@ Public Sub submit_data()
         """name"":""" & ActiveSheet.name & """," & _
         """token"":""" & token & """," & _
         """columns"":" & lastCol & "," & _
-        """data"":""" & data & """" & _
+        """data"":""" & builder.ToString & """" & _
     "}"
     
     response = request(host, "submit", payload)
-    MsgBox (response)
+    MsgBox response
 
 End Sub
 
@@ -63,19 +46,21 @@ Private Function request(host As String, endpoint As String, Optional payload As
     Const SXH_OPTION_IGNORE_SERVER_SSL_CERT_ERROR_FLAGS = 2
     Const SXH_SERVER_CERT_IGNORE_UNKNOWN_CA = 256
     Const SXH_SERVER_CERT_IGNORE_CERT_CN_INVALID = 4096
+    Const WAIT_TIMEOUT = 60
 
     With CreateObject("MSXML2.ServerXMLHTTP")
         .Open IIf(payload = vbNullString, "GET", "POST"), host & "/" & endpoint, False
         .setOption SXH_OPTION_IGNORE_SERVER_SSL_CERT_ERROR_FLAGS, SXH_SERVER_CERT_IGNORE_CERT_CN_INVALID + SXH_SERVER_CERT_IGNORE_UNKNOWN_CA
         .setRequestHeader "Content-Type", "application/json"
         .Send payload
+        .waitForResponse (WAIT_TIMEOUT)
         request = .responsetext
         .Abort
     End With
     
 End Function
 
-Public Function regExp(pattern As String, text As String) As String
+Public Function regExp(pattern As String, Text As String) As String
     
     Dim regExpObj          As Object
     Dim reMatches          As Object
@@ -130,3 +115,5 @@ Private Sub format_header(ws As Worksheet, columns As Integer)
     End With
 
 End Sub
+
+
