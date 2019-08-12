@@ -30,7 +30,7 @@ def generate_table_stmt(schema, table, columns):
     # gernerate a create table statement
     alnum_columns = [to_alnum(column) for column in columns]
     cols_type = ','.join(['{} VARCHAR'.format(col) for col in alnum_columns])
-    return 'CREATE TABLE {schema}.{table}({cols_type})'.format(**locals())
+    return 'CREATE TABLE {schema}.{table} IF NOT EXISTS ({cols_type})'.format(**locals())
 
 
 def s3_copy(bucket, key, dataframe):
@@ -94,8 +94,8 @@ def post_route():
 
         # copy to redshift
         connection = engine.connect()
-        connection.execute('DROP TABLE IF EXISTS x_excel.{} CASCADE'.format(table_name))
         connection.execute(generate_table_stmt('x_excel', table_name, header))
+        connection.execute('TRUNCATE TABLE x_excel.{}'.format(table_name))
         connection.execute(text(copy_stmt).execution_options(autocommit=True))
         return 'Load into table {table_name} completed, {n_records} records loaded successfully.\n'.format(**locals())
 
