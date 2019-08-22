@@ -9,13 +9,15 @@ Public Sub submit_data()
     Dim response        As String
     Dim data            As String
     Dim lastCol         As Integer
-    Dim lastRow         As Integer
+    Dim lastRow         As Long
     Dim builder         As StringBuilder
     Dim i, j            As Integer
     
     With ActiveSheet
         lastCol = .Cells(1, columns.Count).End(xlToLeft).Column
-        lastRow = .Cells(Rows.Count, "A").End(xlUp).Row
+        lastRow = Cells.Find(What:="*", After:=Range("A1"), LookIn:=xlValues, LookAt _
+        :=xlPart, SearchOrder:=xlByRows, SearchDirection:=xlPrevious, MatchCase:= _
+        False, SearchFormat:=False).Row
     End With
     
     Set builder = New StringBuilder
