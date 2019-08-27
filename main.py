@@ -3,7 +3,6 @@ import io
 import gzip
 from types import SimpleNamespace
 
-import boto3
 import pandas as pd
 import sqlalchemy
 from sqlalchemy.sql import text
@@ -12,8 +11,12 @@ from flask import Flask, request
 with open('../auth/auth.json') as f:
     auth = SimpleNamespace(**json.load(f))
 
-s3client = boto3.client('s3', aws_access_key_id=auth.s3['key_id'], aws_secret_access_key=auth.s3['key'])
-engine = sqlalchemy.create_engine('redshift://{user}:{password}@{host}:{port}/{dbname}'.format(**auth.db))
+if hasattr(auth, 's3'):
+    import boto3
+    s3client = boto3.client('s3', aws_access_key_id=auth.s3['key_id'], aws_secret_access_key=auth.s3['key'])
+
+if hasattr(auth, 'db'):
+    engine = sqlalchemy.create_engine('redshift://{user}:{password}@{host}:{port}/{dbname}'.format(**auth.db))
 
 
 def list_to_matrix(l, n):
