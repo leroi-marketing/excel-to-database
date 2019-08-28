@@ -1,6 +1,6 @@
 Option Explicit
 
-Private Const host = "localhost:5000"
+Private Const host = "http://localhost:5000"
 Private Const token = ""
 
 Public Sub submit_data()
@@ -25,8 +25,9 @@ Public Sub submit_data()
     For i = 1 To lastRow
         For j = 1 To lastCol
              builder.Append ActiveSheet.Cells(i, j)
-             If Not (i = lastRow And j = lastCol) Then builder.Append ("\t")
+             If Not (j = lastCol) Then builder.Append ("\t")
         Next j
+        If Not (i = lastRow) Then builder.Append ("\n")
     Next i
     
     payload = _
