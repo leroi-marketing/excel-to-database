@@ -1,9 +1,10 @@
 import json
 import io
+import os
 import gzip
 from types import SimpleNamespace
 
-import pandas as pd
+import csv
 import sqlalchemy
 from sqlalchemy.sql import text
 from flask import Flask, request
@@ -36,16 +37,79 @@ def generate_table_stmt(schema, table, columns):
     return f'CREATE TABLE {schema}.{table}({cols_type})'
 
 
-def s3_copy(bucket, key, dataframe):
-    # copy a pandas dataframe as a csv.gz to s3
+def s3_copy(bucket: str, key: str, csv_reader):
+    # copy a pandas csv_reader as a csv.gz to s3
     def compress(string, cp='utf-8'):
         out = io.BytesIO()
         with gzip.GzipFile(fileobj=out, mode='w') as f:
             f.write(string.encode(cp))
         return out.getvalue()
 
-    body = compress(dataframe.to_csv(index=False, header=False))
+    header = next(csv_reader)
+    body_io = io.StringIO()
+    writer = csv.writer(body_io)
+    _ = list(writer.writerow(row) for row in csv_reader)
+    body_io.seek(0)
+    body = compress(body_io.read())
     s3client.put_object(Bucket=bucket, Key=key, Body=body)
+
+
+def destination_redshift(tsv_data: io.StringIO, table_name: str):
+    reader = csv.reader(tsv_data, delimiter='\t')
+    key = f'excel-to-database/{table_name}.csv.gz'
+    arn = auth.s3['arn']
+    bucket = auth.s3['bucket']
+
+    # load to s3 bucket
+    s3_copy(bucket, key, reader)
+
+    # load to redshift
+    copy_stmt = f'''COPY x_excel.{table_name}
+                FROM 's3://{bucket}/{key}'
+                iam_role '{arn}'
+                GZIP
+                csv
+                COMPUPDATE OFF
+                region 'eu-central-1';'''
+
+    # get column names
+    connection = engine.connect()
+    col_names = connection.execute(f'SELECT COLUMN_NAME from INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME=\'{table_name}\'')
+    col_names = [col_name.values()[0].upper() for col_name in col_names]
+
+    # compare sorted and upper col names as it is tricky to control case and order (not an ideal solution)
+    tsv_data.seek(0)
+    header = next(reader)
+    n_records = len(reader)
+    if sorted(col_names) == sorted(header):
+        # truncate if cols seem to be the same (will fail if only column order is changed)
+        action = 'Truncated'
+        connection.execute(f'Truncate TABLE x_excel.{table_name}')
+    else:
+        # drop if col names not the same
+        action = 'Dropped'
+        connection.execute(f'DROP TABLE IF EXISTS x_excel.{table_name} CASCADE')
+        connection.execute(generate_table_stmt('x_excel', table_name, header))
+
+    connection.execute(text(copy_stmt).execution_options(autocommit=True))
+    return f'{action} and loaded into x_excel.{table_name}.\n{n_records} records loaded successfully.\n'
+
+
+def destination_local(tsv_data: io.StringIO, table_name: str):
+    path = auth.local_dest
+    if not os.path.isdir(path):
+        os.mkdirs(path)
+
+    filename = f'{path}/{table_name}.csv'
+    n_records = 0
+    with open(filename, 'w') as fp:
+        writer = csv.writer(fp)
+        reader = csv.reader(tsv_data, delimiter='\t')
+        for row in reader:
+            writer.writerow(row)
+            n_records += 1
+
+    return f'Created {filename}.\n{n_records-1} records loaded successfully.\n'
 
 
 app = Flask(__name__)
@@ -71,48 +135,12 @@ def post_route():
 
     try:
         # write json data to csv
-        list_data = data['data'].split('\t')
-        data_matrix = list_to_matrix(list_data, data['columns'])
-        header = [col_name.upper() for col_name in data_matrix.pop(0)]
-        df = pd.DataFrame(data_matrix, columns=header)
-        n_records = df.shape[0]
-
-        # load to redshift
+        tsv_data = io.StringIO(data['data'])
         table_name = data['name'].lower()
-        key = f'excel-to-database/{table_name}.csv.gz'
-        arn = auth.s3['arn']
-        bucket = auth.s3['bucket']
-
-        # load to s3 bucket
-        s3_copy(bucket, key, df)
-
-        # load to redshift
-        copy_stmt = f'''COPY x_excel.{table_name}
-                    FROM 's3://{bucket}/{key}'
-                    iam_role '{arn}'
-                    GZIP
-                    csv
-                    COMPUPDATE OFF
-                    region 'eu-central-1';'''
-
-        # get column names
-        connection = engine.connect()
-        col_names = connection.execute(f'SELECT COLUMN_NAME from INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME=\'{table_name}\'')
-        col_names = [col_name.values()[0].upper() for col_name in col_names]
-
-        # compare sorted and upper col names as it is tricky to control case and order (not an ideal solution)
-        if sorted(col_names) == sorted(header):
-            # truncate if cols seem to be the same (will fail if only column order is changed)
-            action = 'Truncated'
-            connection.execute(f'Truncate TABLE x_excel.{table_name}')
-        else:
-            # drop if col names not the same
-            action = 'Dropped'
-            connection.execute(f'DROP TABLE IF EXISTS x_excel.{table_name} CASCADE')
-            connection.execute(generate_table_stmt('x_excel', table_name, header))
-
-        connection.execute(text(copy_stmt).execution_options(autocommit=True))
-        return f'{action} and loaded into x_excel.{table_name}.\n{n_records} records loaded successfully.\n'
+        if hasattr(auth, 's3'):
+            return destination_redshift(tsv_data, table_name)
+        elif hasattr(auth, 'local_dest'):
+            return destination_local(tsv_data, table_name)
 
     except Exception as e:
         # return any error as a response to the excel macro
