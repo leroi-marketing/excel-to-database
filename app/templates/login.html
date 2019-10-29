@@ -1,0 +1,49 @@
+{% extends "_layout_simple.html" %}
+
+{% block content %}
+    <div class="row justify-content-center">
+      <div class="col-md-8">
+        <div class="card-group">
+          <div class="card p-4">
+            <div class="card-body">
+              <h1>Login</h1>
+              <p class="text-muted">Sign In to your account</p>
+              <form method="POST" action="{{ url_for('login') }}">
+                {{ form.hidden_tag() }}
+                {{ get_flashed_messages()[-1] }}
+                <div class="input-group mb-3">
+                  <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="icon-user"></i></span>
+                  </div>
+                  <input name="username" type="text" class="form-control" placeholder="Username">
+                  {% for error in form.username.errors %}
+                    <span style="color: red;">{{ error }}</span>
+                  {% endfor %}
+                </div>
+                <div class="input-group mb-4">
+                  <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="icon-lock"></i></span>
+                  </div>
+                  <input name="password" type="password" class="form-control" placeholder="Password">
+                  {% for error in form.password.errors %}
+                    <span style="color: red;">{{ error }}</span>
+                  {% endfor %}
+                </div>
+                <div class="input-group mb-4">
+                  <input name="remember_me" id="remember_me" type="checkbox"/>
+                  <div class="input-group-append">
+                    {{ form.remember_me.label }}
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-6">
+                    <button type="submit" class="btn btn-primary px-4">Login</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+{% endblock %}

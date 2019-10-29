@@ -1,0 +1,37 @@
+import os
+from config import Config as ConfigGlobal
+
+class Config(ConfigGlobal):
+    # First override this if you want to have one less security hole
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'definitely-different-from-global-config-but-still-change-me'
+
+    # Azure Data Warehouse
+    DESTINATION = "azuredw"
+    DB = {
+        "user": "mydbuser",
+        "password": "supersecret",
+        "host": "myazuredb.database.windows.net",
+        "port": "1433",
+        "dbname": "dwh",
+        "driver": "ODBC Driver 17 for SQL Server"
+    }
+
+    # RedShift
+    DESTINATION = "redshift"
+    DB = {
+        "user": "mydbuser",
+        "password": "supersecret",
+        "host": "dbhost",
+        "port": "5432",
+        "dbname": "dwh"
+    }
+    S3 = {
+        "key_id": "36bcf354364_access_key_id_245213aaaa",
+        "key": "4523bcd74_aws_secret_access_key_cde026",
+        "arn": "the_arn",
+        "bucket": "bucket_name"
+    }
+
+    # Local Destination
+    DESTINATION = ""
+    LOCAL_DEST = "/path/to/storage/location"

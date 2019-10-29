@@ -1,3 +1,10 @@
 .idea/
 .vscode/
 venv/
+auth/
+__pycache__
+*.log
+app/static/resources
+app/static/.auto
+config_local.py
+yarn.lock

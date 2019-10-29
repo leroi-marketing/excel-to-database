@@ -1,0 +1,46 @@
+{% extends "_layout_simple.html" %}
+
+{% block content %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='excel.css') }}"/>
+    <div class="row justify-content-center">
+      <div class="col-md-8">
+        <div class="card-group">
+          <div class="card p-4">
+            <div class="card-body">
+              <h1>Upload Excel File</h1>
+              <form method="post" encrype="multipart/form-data" action="">
+                {{ get_flashed_messages()[-1] }}
+                <div class="input-group mb-3">
+                  <input type="file" id="excel" name="excel[]"/>
+                  <label for="excel">
+                    <span class="btn btn-primary">Choose a file</span><br/><br/>
+                    <span class="box__dragndrop text-muted">Or drag and drop here</span>
+                  </label>
+                </div>
+              </form>
+              <div class="row">
+                <div class="col-6">
+                  <button type="button" id="submitbtn" style="display: none;" class="btn btn-primary px-4">Upload</button>
+                </div>
+                <div class="col-6">
+                  <button type="reset" id="resetbtn" style="display: none;" class="btn btn-secondary px-4 pull-right">Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+{% endblock %}
+
+{% block footer %}
+<script src="{{ url_for('static', filename='resources/async/dist/async.min.js') }}"></script>
+<script src="{{ url_for('static', filename='resources/underscore/underscore-min.js') }}"></script>
+<script src="{{ url_for('static', filename='resources/zipjs/WebContent/zip.js') }}"></script>
+<script>
+  zip.workerScriptsPath = "{{ url_for('static', filename='resources/zipjs/WebContent/') }}"
+</script>
+<script src="{{ url_for('static', filename='resources/xlsxjs/xlsx.js') }}"></script>
+<script src="{{ url_for('static', filename='xlsparser.js') }}"></script>
+<script src="{{ url_for('static', filename='excel.js') }}"></script>
+{% endblock %}
