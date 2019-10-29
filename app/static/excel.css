@@ -1,0 +1,49 @@
+.box__dragndrop,
+.box__uploading,
+.box__success,
+.box__error {
+    display: none;
+}
+
+form.has-advanced-upload #excel {
+    display: none;
+}
+
+form.has-advanced-upload #excel + label {
+    display: block;
+    width: 100%;
+}
+
+form.has-advanced-upload .box__dragndrop {
+    display: block;
+    background-color: white;
+    outline: 2px dashed #aaa;
+    padding: 40px 0;
+    text-align: center;
+}
+
+form.is-dragover .box__dragndrop {
+    background-color: #aaa;
+    outline: 2px solid #aaa;
+    color: #fff !important;
+}
+
+.sheet_selector, .sheet_selector + label {
+    cursor: pointer;
+}
+
+.sheet_selector + label {
+    padding: 0 0 0 5px;
+}
+
+em.error {
+    color: #f00;
+}
+
+em.success {
+    color: #080;
+}
+
+em > span.message {
+    display: block;
+}

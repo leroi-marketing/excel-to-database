@@ -1,39 +1,50 @@
+from types import SimpleNamespace
+from typing import List
+from config_local import Config
 import json
 import io
-import os
 import gzip
-from types import SimpleNamespace
-
-import csv
-from flask import Flask, request
 import re
+import csv
+import os
 
-with open('../auth/auth.json') as f:
-    auth = SimpleNamespace(**json.load(f))
-
-if hasattr(auth, 's3'):
+if hasattr(Config, 'S3'):
     import boto3
-    s3client = boto3.client('s3', aws_access_key_id=auth.s3['key_id'], aws_secret_access_key=auth.s3['key'])
+    s3client = boto3.client('s3', aws_access_key_id=Config.S3['key_id'], aws_secret_access_key=Config.S3['key'])
+
 
 def list_to_matrix(l, n):
-    # turn list l into 2D matrix of n columns
+    """turn list l into 2D matrix of n columns
+    """
     return [l[i:i + n] for i in range(0, len(l), n)]
 
 
 def to_alnum(string):
-    # get rid of non alpahunmeric characters except underscores
+    """Get rid of non alpahunmeric characters except underscores
+    """
     return ''.join(char for char in string if char.isalnum() or char == '_')
 
 
+def array2d_to_csv(in_list: List[List[str]]) -> io.StringIO:
+    """Converts a list of lists into a csv StringIO object
+    """
+    result = io.StringIO()
+    writer = csv.writer(result).writerows(in_list)
+    result.seek(0)
+    return result
+
+
 def generate_table_stmt(schema, table, columns, text_type_name='VARCHAR'):
-    # gernerate a create table statement
+    """gernerate a create table statement
+    """
     alnum_columns = [to_alnum(column) for column in columns]
     cols_type = ','.join([f'{col} {text_type_name}' for col in alnum_columns])
     return f'CREATE TABLE {schema}.{table}({cols_type})'
 
 
 def s3_copy(bucket: str, key: str, csv_reader):
-    # copy a pandas csv_reader as a csv.gz to s3
+    """copy a pandas csv_reader as a csv.gz to s3
+    """
     def compress(string, cp='utf-8'):
         out = io.BytesIO()
         with gzip.GzipFile(fileobj=out, mode='w') as f:
@@ -53,17 +64,17 @@ def sqlify(name: str):
     return re.sub(r"[^a-zA-Z0-9]+", "_", name.lower())
 
 
-def destination_redshift(tsv_data: io.StringIO, table_name: str):
+def destination_redshift(csv_data: io.StringIO, table_name: str):
     import sqlalchemy
     from sqlalchemy.sql import text
 
-    dsn = 'redshift://{user}:{password}@{host}:{port}/{dbname}'.format(**auth.db)
+    dsn = 'redshift://{user}:{password}@{host}:{port}/{dbname}'.format(**Config.DB)
     engine = sqlalchemy.create_engine(dsn)
 
-    reader = csv.reader(tsv_data, delimiter='\t')
+    reader = csv.reader(csv_data)
     key = f'excel-to-database/{table_name}.csv.gz'
-    arn = auth.s3['arn']
-    bucket = auth.s3['bucket']
+    arn = Config.S3['arn']
+    bucket = Config.S3['bucket']
 
     # load to s3 bucket
     s3_copy(bucket, key, reader)
@@ -83,7 +94,7 @@ def destination_redshift(tsv_data: io.StringIO, table_name: str):
     col_names = [col_name.values()[0].upper() for col_name in col_names]
 
     # compare sorted and upper col names as it is tricky to control case and order (not an ideal solution)
-    tsv_data.seek(0)
+    csv_data.seek(0)
     header = next(reader)
     n_records = len(reader)
     if sorted(col_names) == sorted(header):
@@ -100,16 +111,16 @@ def destination_redshift(tsv_data: io.StringIO, table_name: str):
     return f'{action} and loaded into x_excel.{table_name}.\n{n_records} records loaded successfully.\n'
 
 
-def destination_local(tsv_data: io.StringIO, table_name: str):
-    path = auth.local_dest
+def destination_local(csv_data: io.StringIO, table_name: str):
+    path = Config.LOCAL_DEST
     if not os.path.isdir(path):
-        os.mkdirs(path)
+        os.makedirs(path)
 
     filename = f'{path}/{table_name}.csv'
     n_records = 0
     with open(filename, 'w') as fp:
         writer = csv.writer(fp)
-        reader = csv.reader(tsv_data, delimiter='\t')
+        reader = csv.reader(csv_data)
         for row in reader:
             writer.writerow(row)
             n_records += 1
@@ -117,21 +128,21 @@ def destination_local(tsv_data: io.StringIO, table_name: str):
     return f'Created {filename}.\n{n_records-1} records loaded successfully.\n'
 
 
-def destination_azuredw(tsv_data: io.StringIO, table_name: str):
+def destination_azuredw(csv_data: io.StringIO, table_name: str):
     import pyodbc
 
     conn = pyodbc.connect(
         'DRIVER={driver};SERVER=tcp:{host};DATABASE={dbname};UID={user};PWD={password}'.format(
-                **auth.db
+                **Config.DB
             )
         )
     conn.autocommit = True
     cursor = conn.cursor()
 
-    reader = csv.reader(tsv_data, delimiter='\t')
+    reader = csv.reader(csv_data)
 
     # compare sorted and upper col names as it is tricky to control case and order (not an ideal solution)
-    tsv_data.seek(0)
+    csv_data.seek(0)
     header = next(reader)
 
     cursor.execute(f"""
@@ -165,45 +176,3 @@ def destination_azuredw(tsv_data: io.StringIO, table_name: str):
         cursor.execute(statement)
 
     return f'Loaded into x_excel.{table_name}.\n{n_records} records loaded successfully.\n'
-
-
-app = Flask(__name__)
-
-
-@app.route('/submit', methods=['POST'])
-def post_route():
-    # read data as json
-    data = request.get_json(force=True)
-
-    # check for presence of all required fields
-    for key in ['token', 'name', 'columns', 'data']:
-        if key not in data.keys():
-            return f'Missing data field: {key}\n'
-
-    # load token
-    with open('../auth/auth.json') as f:
-        token = json.load(f)['token']
-
-    # check for valid token
-    if data['token'] != token:
-        return 'Invalid token\n'
-
-    try:
-        # write json data to csv
-        tsv_data = io.StringIO(data['data'])
-        table_name = sqlify(data['name'])
-        if auth.destination == "redshift":
-            return destination_redshift(tsv_data, table_name)
-        elif auth.destination == 'azuredw':
-            return destination_azuredw(tsv_data, table_name)
-        else:
-            return destination_local(tsv_data, table_name)
-
-    except Exception as e:
-        # return any error as a response to the excel macro
-        return e
-
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0',
-            port=5000)
