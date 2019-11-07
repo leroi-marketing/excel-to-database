@@ -1,4 +1,22 @@
 xlsxParser = (function() {
+    NodeList.prototype.where = function(ev) {
+        var res = [];
+        for(var i=0;i<this.length;i++) {
+            if(ev(this[i])) {
+                res.push(this[i]);
+            }
+        }
+        return res;
+    };
+
+    NodeList.prototype.select = function(ev) {
+        var res = [];
+        for(var i=0;i<this.length;i++) {
+            res.push(ev(this[i]));
+        }
+        return res;
+    };
+
     function extractFiles(file) {
         var deferred = $.Deferred();
 
@@ -29,7 +47,10 @@ xlsxParser = (function() {
     }
 
     function extractData(files) {
-        var strings = $(files['sharedStrings.xml']);
+        var parser = new DOMParser();
+        var strings = parser.parseFromString(files['sharedStrings.xml'], 'text/xml')
+                            .childNodes[0]
+                            .childNodes.select(n=>n.textContent);
 
         var colToInt = function(col) {
             var letters = ["", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
@@ -42,22 +63,26 @@ xlsxParser = (function() {
             return n;
         };
 
+        var re = new RegExp(/^([A-Z]+)(.*)$/);
+
         var Cell = function(cell) {
-            cell = cell.split(/([0-9]+)/);
-            this.row = parseInt(cell[1]);
-            this.column = colToInt(cell[0]);
+            cell = cell.match(re);
+            this.row = parseInt(cell[2]);
+            this.column = colToInt(cell[1]);
         };
 
         var sheets = $(files['workbook.xml']).find('sheet').map(
             (k, s)=>[s.attributes.name.nodeValue, s.attributes['r:Id'].nodeValue.substring(3)]
         );
         allData = {};
+        
         for(var sheetId = 0; sheetId < sheets.length; sheetId += 2) {
-            var sheet = $(files['sheet' + sheets[sheetId + 1] + '.xml']),
+            var sheet = parser.parseFromString(files['sheet' + sheets[sheetId + 1] + '.xml'], 'text/xml'),
                 sheetName = sheets[sheetId],
                 data = [];
 
-            var d = sheet.find('dimension').attr('ref').split(':');
+            var d = sheet.childNodes[0]
+                         .childNodes.where(n=>n.nodeName=='dimension')[0].attributes.ref.value.split(':');
             d = _.map(d, function(v) { return new Cell(v); });
 
             var cols = d[1].column - d[0].column + 1,
@@ -69,39 +94,51 @@ xlsxParser = (function() {
                 data.push(_row);
             });
 
-            sheet.find('sheetData row c').each(function(i, c) {
-                var $cell = $(c),
-                    cell = new Cell($cell.attr('r')),
-                    type = $cell.attr('t'),
-                    value = $cell.find('v').text(),
-                    numtype = $cell.attr('s');
+            var sheetData = sheet.childNodes[0].childNodes.where(n=>n.nodeName=='sheetData')[0];
+            var rows = sheetData.childNodes;
+            totalRows = sheetData.childElementCount;
+            for(var rIndex = 0; rIndex < totalRows; rIndex++) {
+                var row = rows[rIndex];
+                var cells = row.childNodes;
+                var totalCells = row.childElementCount;
+                for(var cIndex = 0; cIndex < totalCells; cIndex ++) {
+                    var $cell = cells[cIndex];
+                    var cell = new Cell($cell.attributes.r.value),
+                        type = $cell.attributes.t,
+                        value = $cell.childNodes.where(n=>n.nodeName=='v'),
+                        numtype = $cell.attributes.s;
 
-                if (type == 's') {
-                    value = strings.find('si t').eq(parseInt(value)).text();
-                }
-                else if (numtype == '4' && value !== '') {
-                    // Excel starts counting days since 1900-01-01. And that date is the FIRST day. So actually,
-                    // in zero-based indexes, this is like Excel counting days since 1899-12-31.
-                    // Except, someone who wrote an early version of Excel, incorrectly considered 1900 as a leap year
-                    // therefore counting one extra day ever since February 28, 1900. This bug still exists due to
-                    // backwards compatibility.
-                    // Thus, count 1 day less because of the leap year bug.
-                    value = parseInt(value);
-                    if(!isNaN(value)) {
-                        // 1900-01-01
-                        var dt = new Date(1900, 0, 1);
-                        // setDate(1) will keep it unchanged, so this would be completely compatible with Excel date,
-                        // unlike adding days to already that 1 date. But this still has to fix the leap year bug
-                        dt.setDate(parseInt(value) - 1);
-                        value = dt.toISOString().split('T')[0];
+                    if (value.length) {
+                        value = value[0].textContent;
                     }
                     else {
                         value = '';
                     }
-                }
 
-                data[cell.row - d[0].row][cell.column - d[0].column] = value;
-            });
+                    if (type && type.value == 's') {
+                        value = strings[parseInt(value)];
+                    }
+                    else if (numtype && numtype.value == '4' && value !== '') {
+                        // Excel starts counting days since 1900-01-01. And that date is the FIRST day.
+                        value = parseInt(value);
+                        if(!isNaN(value)) {
+                            // 1900-01-01
+                            var dt = new Date(1900, 0, 1);
+                            // setDate(1) will keep it unchanged, so this would be completely compatible with Excel
+                            // date, unlike adding days to already that 1 date. But this still has to fix the leap year
+                            // bug
+                            dt.setDate(parseInt(value));
+                            value = dt.toISOString().split('T')[0];
+                        }
+                        else {
+                            value = '';
+                        }
+                    }
+
+                    data[cell.row - d[0].row][cell.column - d[0].column] = value;
+                }
+            }
+
             // Clean up empty rows at the end, and scan for max row length
             maxColPosition = 0;
             for(var i = data.length - 1; i>=0; i--) {

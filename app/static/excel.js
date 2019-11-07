@@ -89,7 +89,6 @@ $("document").ready(function() {
                     contentType: 'application/json',
                     success: function(msg) {
                         if(msg.error) {
-                            $("#submitbtn, #resetbtn").show();
                             $("#error_div .error").html('<span class="message">Upload failed</span>');
                         }
                         else {
@@ -98,9 +97,9 @@ $("document").ready(function() {
                     },
                     error: function() {
                         $("#error_div .error").html('<span class="message">Upload failed: internal server error</span>');
-                        $("#submitbtn, #resetbtn").show();
                     },
                     complete: function() {
+                        $("#submitbtn, #resetbtn").show();
                         pbar.dom.remove();
                     }
                 });
