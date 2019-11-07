@@ -49,7 +49,7 @@ xlsxParser = (function() {
         };
 
         var sheets = $(files['workbook.xml']).find('sheet').map(
-            (k, s)=>[s.attributes.name.nodeValue, s.attributes.sheetid.nodeValue]
+            (k, s)=>[s.attributes.name.nodeValue, s.attributes['r:Id'].nodeValue.substring(3)]
         );
         allData = {};
         for(var sheetId = 0; sheetId < sheets.length; sheetId += 2) {
@@ -73,12 +73,61 @@ xlsxParser = (function() {
                 var $cell = $(c),
                     cell = new Cell($cell.attr('r')),
                     type = $cell.attr('t'),
-                    value = $cell.find('v').text();
+                    value = $cell.find('v').text(),
+                    numtype = $cell.attr('s');
 
-                if (type == 's') value = strings.find('si t').eq(parseInt(value)).text();
+                if (type == 's') {
+                    value = strings.find('si t').eq(parseInt(value)).text();
+                }
+                else if (numtype == '4' && value !== '') {
+                    // Excel starts counting days since 1900-01-01. And that date is the FIRST day. So actually,
+                    // in zero-based indexes, this is like Excel counting days since 1899-12-31.
+                    // Except, someone who wrote an early version of Excel, incorrectly considered 1900 as a leap year
+                    // therefore counting one extra day ever since February 28, 1900. This bug still exists due to
+                    // backwards compatibility.
+                    // Thus, count 1 day less because of the leap year bug.
+                    value = parseInt(value);
+                    if(!isNaN(value)) {
+                        // 1900-01-01
+                        var dt = new Date(1900, 0, 1);
+                        // setDate(1) will keep it unchanged, so this would be completely compatible with Excel date,
+                        // unlike adding days to already that 1 date. But this still has to fix the leap year bug
+                        dt.setDate(parseInt(value) - 1);
+                        value = dt.toISOString().split('T')[0];
+                    }
+                    else {
+                        value = '';
+                    }
+                }
 
                 data[cell.row - d[0].row][cell.column - d[0].column] = value;
             });
+            // Clean up empty rows at the end, and scan for max row length
+            maxColPosition = 0;
+            for(var i = data.length - 1; i>=0; i--) {
+                var row = data[i];
+                var isEmpty = true;
+                for(var j = row.length - 1; j>=0; j--) {
+                    if(row[j] !== '') {
+                        isEmpty = false;
+                        if(j > maxColPosition) {
+                            maxColPosition = j;
+                        }
+                        break;
+                    }
+                }
+                if(!isEmpty) {
+                    break;
+                }
+                else {
+                    data.pop();
+                }
+            }
+            // Shorten rows
+            for(var i = data.length - 1; i>=0; i--) {
+                data[i] = data[i].slice(0, maxColPosition + 1);
+            }
+            // Commit the data to the result
             allData[sheetName] = data;
         }
         return allData;
