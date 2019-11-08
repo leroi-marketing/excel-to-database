@@ -64,7 +64,7 @@ def sqlify(name: str):
     return re.sub(r"[^a-zA-Z0-9]+", "_", name.lower())
 
 
-def destination_redshift(csv_data: io.StringIO, table_name: str):
+def destination_redshift(csv_data: io.StringIO, table_name: str, path: str):
     import sqlalchemy
     from sqlalchemy.sql import text
 
@@ -80,7 +80,10 @@ def destination_redshift(csv_data: io.StringIO, table_name: str):
     s3_copy(bucket, key, reader)
 
     # load to redshift
-    copy_stmt = f'''COPY x_excel.{table_name}
+    schema_name = 'x_excel'
+    if path:
+        schema_name += '_' + path
+    copy_stmt = f'''COPY {schema_name}.{table_name}
                 FROM 's3://{bucket}/{key}'
                 iam_role '{arn}'
                 GZIP
@@ -100,19 +103,24 @@ def destination_redshift(csv_data: io.StringIO, table_name: str):
     if sorted(col_names) == sorted(header):
         # truncate if cols seem to be the same (will fail if only column order is changed)
         action = 'Truncated'
-        connection.execute(f'Truncate TABLE x_excel.{table_name}')
+        connection.execute(f'Truncate TABLE {schema_name}.{table_name}')
     else:
         # drop if col names not the same
         action = 'Dropped'
-        connection.execute(f'DROP TABLE IF EXISTS x_excel.{table_name} CASCADE')
-        connection.execute(generate_table_stmt('x_excel', table_name, header))
+        connection.execute(f'DROP TABLE IF EXISTS {schema_name}.{table_name} CASCADE')
+        connection.execute(generate_table_stmt(schema_name, table_name, header))
 
     connection.execute(text(copy_stmt).execution_options(autocommit=True))
-    return f'{action} and loaded into x_excel.{table_name}.\n{n_records} records loaded successfully.\n'
+    return f'{action} and loaded into {schema_name}.{table_name}.\n{n_records} records loaded successfully.\n'
 
 
-def destination_local(csv_data: io.StringIO, table_name: str):
-    path = Config.LOCAL_DEST
+def destination_local(csv_data: io.StringIO, table_name: str, path: str):
+    if path:
+        if path[0] != '/':
+            path = Config.LOCAL_DEST + '/' + path
+    else:
+        path = Config.LOCAL_DEST
+
     if not os.path.isdir(path):
         os.makedirs(path)
 
@@ -128,7 +136,7 @@ def destination_local(csv_data: io.StringIO, table_name: str):
     return f'Created {filename}.\n{n_records-1} records loaded successfully.\n'
 
 
-def destination_azuredw(csv_data: io.StringIO, table_name: str):
+def destination_azuredw(csv_data: io.StringIO, table_name: str, path: str):
     import pyodbc
 
     conn = pyodbc.connect(
@@ -145,34 +153,36 @@ def destination_azuredw(csv_data: io.StringIO, table_name: str):
     csv_data.seek(0)
     header = next(reader)
 
+    schema_name = 'x_excel'
+    if path:
+        schema_name += '_' + path
+
     cursor.execute(f"""
-    IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name='x_excel') EXEC('CREATE SCHEMA x_excel')
+    IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name='{schema_name}') EXEC('CREATE SCHEMA {schema_name}')
     """)
 
     cursor.execute(f"""
     IF EXISTS (SELECT 1
                FROM sys.schemas
                JOIN sys.tables ON schemas.schema_id=tables.schema_id
-               WHERE schemas.name='x_excel' AND tables.name='{table_name}')
-    DROP TABLE x_excel.{table_name}
+               WHERE schemas.name='{schema_name}' AND tables.name='{table_name}')
+    DROP TABLE {schema_name}.{table_name}
     """)
-    cursor.execute(generate_table_stmt('x_excel', table_name, header, 'NVARCHAR(2000)'))
-    print("Created table")
+    cursor.execute(generate_table_stmt(schema_name, table_name, header, 'NVARCHAR(2000)'))
+
     inserts = []
     n_records = 0
     for row in reader:
         n_records += 1
-        inserts.append(f"INSERT INTO x_excel.{table_name} VALUES (N'" +
+        inserts.append(f"INSERT INTO {schema_name}.{table_name} VALUES (N'" +
                        "', N'".join(map(lambda col: col.replace("'", "''"), row)) +
                        "');\n")
         if len(inserts) == 1000:
             statement = "".join(inserts)
-            print("Executing batch")
             cursor.execute(statement)
             inserts = []
     if inserts:
         statement = "".join(inserts)
-        print("Executing last batch")
         cursor.execute(statement)
 
-    return f'Loaded into x_excel.{table_name}.\n{n_records} records loaded successfully.\n'
+    return f'Loaded into {schema_name}.{table_name}.\n{n_records} records loaded successfully.\n'

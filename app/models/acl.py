@@ -19,11 +19,12 @@ class User(UserMixin):
                 return User(username=username, **retrieved)
             return None
 
-    def __init__(self, username, password_hash, password_salt):
+    def __init__(self, username, password_hash, password_salt, path=''):
         self.id = username
         self.username = username
         self.password_salt = password_salt
         self.password_hash = password_hash
+        self.path = path
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(self.password_salt + password)
