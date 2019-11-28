@@ -26,7 +26,8 @@ xlsxParser = (function() {
                     if(
                         entry.filename.match(/^xl\/worksheets\/.*?\.xml$/)
                         || entry.filename == 'xl/sharedStrings.xml'
-                        || entry.filename == 'xl/workbook.xml') {
+                        || entry.filename == 'xl/workbook.xml'
+                        || entry.filename == 'xl/styles.xml') {
                         fname = entry.filename;
                         entry.getData(new zip.TextWriter(), function(data) {
                             memo[fname.split('/').pop()] = data;
@@ -51,6 +52,40 @@ xlsxParser = (function() {
         var strings = parser.parseFromString(files['sharedStrings.xml'], 'text/xml')
                             .childNodes[0]
                             .childNodes.select(n=>n.textContent);
+
+        // OpenXML format IDs for dates. https://github.com/closedxml/closedxml/wiki/NumberFormatId-Lookup-Table
+        // Times are not considered. Maybe later
+        var dateStyles = {
+            14: true,
+            15: true,
+            16: true,
+            17: true,
+            22: true,
+            30: true
+        };
+        var styleXml = parser.parseFromString(files['styles.xml'], 'text/xml')
+                             .childNodes[0];
+        // Custom formats
+        var numfmtsNodes = styleXml.childNodes.where(n=>n.nodeName=='numFmts');
+        if(numfmtsNodes.length > 0) {
+            var customFormats = numfmtsNodes[0].childNodes.select(n=>({
+                "code": n.attributes.formatCode.value,
+                "id": parseInt(n.attributes.numFmtId.value)
+            }));
+            // If the format contains unescaped m, d or y, consider it a date format. Add the id to the dictionary
+            for(var i = 0; i < customFormats.length; i++) {
+                var fmt = customFormats[i];
+                if(fmt.code.match(/(?<!\\)[mdy]/) !== null) {
+                    dateStyles[fmt.id] = true;
+                }
+            }
+        }
+
+        // each element is referred by Excel sheets as an ordinal. If it's true, then the ordinal stands for a date format
+        var areDates = styleXml.childNodes.where(n=>n.nodeName=='cellXfs')[0]
+                                          .childNodes
+                                          .select(n=>dateStyles.hasOwnProperty(parseInt(n.attributes.numFmtId.value)));
+
 
         var colToInt = function(col) {
             var letters = ["", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
@@ -118,7 +153,7 @@ xlsxParser = (function() {
                     if (type && type.value == 's') {
                         value = strings[parseInt(value)];
                     }
-                    else if (numtype && numtype.value == '4' && value !== '') {
+                    else if (numtype && parseInt(numtype.value) < areDates.length && areDates[parseInt(numtype.value)] && value !== '') {
                         // Excel starts counting days since 1900-01-01. And that date is the FIRST day.
                         value = parseInt(value);
                         if(!isNaN(value)) {
@@ -140,7 +175,8 @@ xlsxParser = (function() {
             }
 
             // Clean up empty rows at the end, and scan for max row length
-            maxColPosition = 0;
+            var maxColPosition = 0;
+            var haveRowsBelow = false;
             for(var i = data.length - 1; i>=0; i--) {
                 var row = data[i];
                 var isEmpty = true;
@@ -154,9 +190,9 @@ xlsxParser = (function() {
                     }
                 }
                 if(!isEmpty) {
-                    break;
+                    haveRowsBelow = true;
                 }
-                else {
+                else if(!haveRowsBelow) {
                     data.pop();
                 }
             }

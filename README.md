@@ -51,7 +51,8 @@ Create `auth/auth.json` with the contents:
 {
     "<username>": {
         "password_hash": "pbkdf2:sha256:50000$GS62LgsS$fd786e13bb85bd4b9c1c71609e103b2a66eebbb751f9b92f7cbc1d195b65f71d",
-        "password_salt": "asd"
+        "password_salt": "asd",
+        "path": "optional/relative-path-for-user-uploaded-files"
     }
 }
 ```

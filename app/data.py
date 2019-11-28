@@ -93,17 +93,18 @@ def destination_redshift(csv_data: io.StringIO, table_name: str, path: str):
 
     # get column names
     connection = engine.connect()
+    connection.execute(f'CREATE SCHEMA IF NOT EXISTS {schema_name}')
     col_names = connection.execute(f'SELECT COLUMN_NAME from INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME=\'{table_name}\'')
-    col_names = [col_name.values()[0].upper() for col_name in col_names]
+    col_names = [col_name.values()[0].lower() for col_name in col_names]
 
-    # compare sorted and upper col names as it is tricky to control case and order (not an ideal solution)
+    # compare sorted and lower col names as it is tricky to control case and order (not an ideal solution)
     csv_data.seek(0)
-    header = next(reader)
-    n_records = len(reader)
+    header = list(to_alnum(col).lower() for col in next(reader))
+    n_records = len(list(reader))
     if sorted(col_names) == sorted(header):
         # truncate if cols seem to be the same (will fail if only column order is changed)
         action = 'Truncated'
-        connection.execute(f'Truncate TABLE {schema_name}.{table_name}')
+        connection.execute(f'TRUNCATE TABLE {schema_name}.{table_name}')
     else:
         # drop if col names not the same
         action = 'Dropped'

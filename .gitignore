@@ -7,4 +7,5 @@ __pycache__
 app/static/resources
 app/static/.auto
 config_local.py
+config_local_*.py
 yarn.lock

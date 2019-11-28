@@ -84,7 +84,7 @@ $("document").ready(function() {
                 $.ajax({
                     xhr: GetXhr(pbar, pbar),
                     type: 'POST',
-                    url: "/submit",
+                    url: "/upload",
                     data: JSON.stringify(payload),
                     contentType: 'application/json',
                     success: function(msg) {
@@ -92,7 +92,11 @@ $("document").ready(function() {
                             $("#error_div .error").html('<span class="message">Upload failed</span>');
                         }
                         else {
-                            $("#success_div .success").html('<span class="message">Upload successful</span>');
+                            for(var i=0; i<msg.length; i++) {
+                                var message = $('<span class="message"></span>');
+                                message.html(msg[i].replace(/\n/, '<br/>'))
+                                $("#success_div .success").append(message);
+                            }
                         }
                     },
                     error: function() {
@@ -127,7 +131,7 @@ $("document").ready(function() {
                     var cb = $('<input type="checkbox" class="sheet_selector" id="cb' + id + '"/>')
                     colDim.append(cb);
                     cb.after('<label for="cb' + id + '"></label><br/>');
-                    cb.next("label").text(sheetName + ' (' + data[sheetName].length + ' rows)');
+                    cb.next("label").text(sheetName + ' (' + data[sheetName].length + ' rows including header)');
 
                     cb.data("sheetName", sheetName);
                     cb.data("data", data[sheetName]);
