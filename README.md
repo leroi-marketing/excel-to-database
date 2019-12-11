@@ -18,9 +18,9 @@ sudo apt update && sudo apt install yarn
 yarn install
 rm -rf app/static/.auto
 mkdir -p app/static/.auto
-ln -s $(pwd)/app/static/resources/@coreui/ajax/src/css app/static/.auto/css
-ln -s $(pwd)/app/static/resources/@coreui/ajax/src/img app/static/.auto/img
-ln -s $(pwd)/app/static/resources/@coreui/ajax/src/js app/static/.auto/js
+ln -s $(pwd)/app/static/resources/@coreui/coreui-free-bootstrap-admin-template/src/css app/static/.auto/css
+ln -s $(pwd)/app/static/resources/@coreui/coreui-free-bootstrap-admin-template/src/img app/static/.auto/img
+ln -s $(pwd)/app/static/resources/@coreui/coreui-free-bootstrap-admin-template/src/js app/static/.auto/js
 ```
 
 #### Install dependencies
@@ -75,7 +75,7 @@ flask run --with-threads --reload --eager-loading --host ::0 --port 5000 2>&1
 #### Run for production
 with `gunicorn`
 ```sh
-gunicorn -w 4 -b 0:5000 app:app
+gunicorn -w 4 -b 0:5000 --forwarded-allow-ips "*" app:app
 ```
 
 #### Run some more

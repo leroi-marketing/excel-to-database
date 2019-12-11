@@ -1,18 +1,16 @@
 {
   "dependencies": {
-    "@coreui/ajax": "https://github.com/mrholek/CoreUI-Free-Bootstrap-Admin-Template/",
-    "zipjs": "https://github.com/gildas-lormeau/zip.js/",
-    "xlsxjs": "https://github.com/stephen-hardy/xlsx.js/",
+    "@coreui/coreui-free-bootstrap-admin-template": "https://github.com/coreui/coreui-free-bootstrap-admin-template.git#v2.1.15",
     "async": "https://github.com/caolan/async",
-    "underscore": "https://github.com/jashkenas/underscore",
-    "bootstrap": "4.0.0",
     "chart.js": "2.7.1",
     "flag-icon-css": "2.9.0",
     "font-awesome": "4.7.0",
     "jquery": "3.4.1",
     "pace-progress": "1.0.2",
-    "popper.js": "1.12.9",
     "simple-line-icons": "2.4.1",
-    "tinymce": "^4.7.7"
+    "tinymce": "^4.7.7",
+    "underscore": "https://github.com/jashkenas/underscore",
+    "xlsxjs": "https://github.com/stephen-hardy/xlsx.js/",
+    "zipjs": "https://github.com/gildas-lormeau/zip.js/"
   }
 }
