@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.3 (2019-12-16)
+
+- Fix handling of empty sheets
+
 ## 2.2 (2019-12-11)
 
 - Update CoreUI, fix version, fix symlink creation in documentation

@@ -118,6 +118,9 @@ xlsxParser = (function() {
 
             var d = sheet.childNodes[0]
                          .childNodes.where(n=>n.nodeName=='dimension')[0].attributes.ref.value.split(':');
+            if(d.length != 2) {
+                continue;
+            }
             d = _.map(d, function(v) { return new Cell(v); });
 
             var cols = d[1].column - d[0].column + 1,
