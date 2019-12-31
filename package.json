@@ -9,8 +9,6 @@
     "pace-progress": "1.0.2",
     "simple-line-icons": "2.4.1",
     "tinymce": "^4.7.7",
-    "underscore": "https://github.com/jashkenas/underscore",
-    "xlsxjs": "https://github.com/stephen-hardy/xlsx.js/",
     "zipjs": "https://github.com/gildas-lormeau/zip.js/"
   }
 }

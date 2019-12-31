@@ -1,14 +1,8 @@
 xlsxParser = (function() {
-    NodeList.prototype.where = function(ev) {
-        var res = [];
-        for(var i=0;i<this.length;i++) {
-            if(ev(this[i])) {
-                res.push(this[i]);
-            }
-        }
-        return res;
-    };
+    NodeList.prototype.filter = Array.prototype.filter;
 
+    //TODO: NodeList.prototype.select = Array.prototype.map ?
+    //TODO: NodeList.prototype.map = Array.prototype.map ?
     NodeList.prototype.select = function(ev) {
         var res = [];
         for(var i=0;i<this.length;i++) {
@@ -66,7 +60,7 @@ xlsxParser = (function() {
         var styleXml = parser.parseFromString(files['styles.xml'], 'text/xml')
                              .childNodes[0];
         // Custom formats
-        var numfmtsNodes = styleXml.childNodes.where(n=>n.nodeName=='numFmts');
+        var numfmtsNodes = styleXml.childNodes.filter(n=>n.nodeName=='numFmts');
         if(numfmtsNodes.length > 0) {
             var customFormats = numfmtsNodes[0].childNodes.select(n=>({
                 "code": n.attributes.formatCode.value,
@@ -82,7 +76,7 @@ xlsxParser = (function() {
         }
 
         // each element is referred by Excel sheets as an ordinal. If it's true, then the ordinal stands for a date format
-        var areDates = styleXml.childNodes.where(n=>n.nodeName=='cellXfs')[0]
+        var areDates = styleXml.childNodes.filter(n=>n.nodeName=='cellXfs')[0]
                                           .childNodes
                                           .select(n=>dateStyles.hasOwnProperty(parseInt(n.attributes.numFmtId.value)));
 
@@ -117,22 +111,24 @@ xlsxParser = (function() {
                 data = [];
 
             var d = sheet.childNodes[0]
-                         .childNodes.where(n=>n.nodeName=='dimension')[0].attributes.ref.value.split(':');
+                         .childNodes.filter(n=>n.nodeName=='dimension')[0].attributes.ref.value.split(':');
             if(d.length != 2) {
                 continue;
             }
-            d = _.map(d, function(v) { return new Cell(v); });
+            d = d.map(v=>new Cell(v));
 
             var cols = d[1].column - d[0].column + 1,
                 rows = d[1].row - d[0].row + 1;
 
-            _(rows).times(function() {
+            for(var rid = 0; rid < rows; rid++) {
                 var _row = [];
-                _(cols).times(function() { _row.push(''); });
+                for(var cid=0; cid < cols; cid++) {
+                    _row.push('');
+                }
                 data.push(_row);
-            });
+            }
 
-            var sheetData = sheet.childNodes[0].childNodes.where(n=>n.nodeName=='sheetData')[0];
+            var sheetData = sheet.childNodes[0].childNodes.filter(n=>n.nodeName=='sheetData')[0];
             var rows = sheetData.childNodes;
             totalRows = sheetData.childElementCount;
             for(var rIndex = 0; rIndex < totalRows; rIndex++) {
@@ -143,7 +139,7 @@ xlsxParser = (function() {
                     var $cell = cells[cIndex];
                     var cell = new Cell($cell.attributes.r.value),
                         type = $cell.attributes.t,
-                        value = $cell.childNodes.where(n=>n.nodeName=='v'),
+                        value = $cell.childNodes.filter(n=>n.nodeName=='v'),
                         numtype = $cell.attributes.s;
 
                     if (value.length) {

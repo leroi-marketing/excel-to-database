@@ -34,12 +34,10 @@
 
 {% block footer %}
 <script src="{{ url_for('static', filename='resources/async/dist/async.min.js') }}"></script>
-<script src="{{ url_for('static', filename='resources/underscore/underscore-min.js') }}"></script>
 <script src="{{ url_for('static', filename='resources/zipjs/WebContent/zip.js') }}"></script>
 <script>
   zip.workerScriptsPath = "{{ url_for('static', filename='resources/zipjs/WebContent/') }}"
 </script>
-<script src="{{ url_for('static', filename='resources/xlsxjs/xlsx.js') }}"></script>
 <script src="{{ url_for('static', filename='xlsparser.js') }}"></script>
 <script src="{{ url_for('static', filename='excel.js') }}"></script>
 {% endblock %}
