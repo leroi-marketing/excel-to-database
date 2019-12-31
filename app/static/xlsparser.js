@@ -21,7 +21,8 @@ xlsxParser = (function() {
                         entry.filename.match(/^xl\/worksheets\/.*?\.xml$/)
                         || entry.filename == 'xl/sharedStrings.xml'
                         || entry.filename == 'xl/workbook.xml'
-                        || entry.filename == 'xl/styles.xml') {
+                        || entry.filename == 'xl/styles.xml'
+                        || entry.filename == 'xl/_rels/workbook.xml.rels') {
                         fname = entry.filename;
                         entry.getData(new zip.TextWriter(), function(data) {
                             memo[fname.split('/').pop()] = data;
@@ -100,13 +101,25 @@ xlsxParser = (function() {
             this.column = colToInt(cell[1]);
         };
 
+        var relationships = Array.from(
+            $(files['workbook.xml.rels']).find('Relationship').map(
+                function(k, s) {
+                    return {
+                        "id": s.attributes.Id.nodeValue,
+                        "type": (s.attributes.Type.nodeValue.match(/(?<=\/)[^\/]*$/) || [''])[0],
+                        "target": (s.attributes.Target.nodeValue.match(/[^\/]*$/) || [''])[0]
+                    }
+                }
+            )
+        ).filter(x=>x.type=='worksheet');
+
         var sheets = $(files['workbook.xml']).find('sheet').map(
-            (k, s)=>[s.attributes.name.nodeValue, s.attributes['r:Id'].nodeValue.substring(3)]
+            (k, s)=>[s.attributes.name.nodeValue, relationships.filter(r=>r.id==s.attributes['r:Id'].nodeValue)[0].target]
         );
         allData = {};
         
         for(var sheetId = 0; sheetId < sheets.length; sheetId += 2) {
-            var sheet = parser.parseFromString(files['sheet' + sheets[sheetId + 1] + '.xml'], 'text/xml'),
+            var sheet = parser.parseFromString(files[sheets[sheetId + 1]], 'text/xml'),
                 sheetName = sheets[sheetId],
                 data = [];
 
@@ -117,8 +130,8 @@ xlsxParser = (function() {
             }
             d = d.map(v=>new Cell(v));
 
-            var cols = d[1].column - d[0].column + 1,
-                rows = d[1].row - d[0].row + 1;
+            var cols = d[1].column,
+                rows = d[1].row;
 
             for(var rid = 0; rid < rows; rid++) {
                 var _row = [];
@@ -169,7 +182,7 @@ xlsxParser = (function() {
                         }
                     }
 
-                    data[cell.row - d[0].row][cell.column - d[0].column] = value;
+                    data[cell.row - 1][cell.column - 1] = value;
                 }
             }
 
