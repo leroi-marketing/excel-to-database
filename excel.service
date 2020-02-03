@@ -1,0 +1,23 @@
+[Unit]
+Description=Excel database upload endpoint
+After=network.target
+
+[Service]
+PermissionsStartOnly = true
+PIDFile = /run/excel/excel.pid
+WorkingDirectory=/home/excel/excel-to-database
+ExecStartPre = /bin/mkdir /run/excel
+ExecStartPre = /bin/chown -R excel:excel /run/excel
+ExecStart=/home/excel/excel-to-database/venv/bin/gunicorn -w 4 -b 0:5000 app:app --pid /run/excel/excel.pid
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s HUP $MAINPID
+ExecStopPost=/bin/rm -rf /run/excel 
+Restart=on-abort
+User=excel
+Group=excel
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.targety
