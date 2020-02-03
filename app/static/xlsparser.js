@@ -106,12 +106,12 @@ xlsxParser = (function() {
                 function(k, s) {
                     return {
                         "id": s.attributes.Id.nodeValue,
-                        "type": (s.attributes.Type.nodeValue.match(/(?<=\/)[^\/]*$/) || [''])[0],
+                        "type": (s.attributes.Type.nodeValue.match(/\/[^\/]*$/) || [''])[0],
                         "target": (s.attributes.Target.nodeValue.match(/[^\/]*$/) || [''])[0]
                     }
                 }
             )
-        ).filter(x=>x.type=='worksheet');
+        ).filter(x=>x.type=='/worksheet');
 
         var sheets = $(files['workbook.xml']).find('sheet').map(
             (k, s)=>[s.attributes.name.nodeValue, relationships.filter(r=>r.id==s.attributes['r:Id'].nodeValue)[0].target]
