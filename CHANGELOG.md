@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4 (2020-02-03)
+
+- Fix Firefox compatibility
+- Add configuration aids for running as systemd service, running on gunicorn behind AWS ELB that provides SSL
+
 ## 2.3 (2019-12-16)
 
 - Fix handling of empty sheets
