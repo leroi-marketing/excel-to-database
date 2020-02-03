@@ -70,7 +70,7 @@ xlsxParser = (function() {
             // If the format contains unescaped m, d or y, consider it a date format. Add the id to the dictionary
             for(var i = 0; i < customFormats.length; i++) {
                 var fmt = customFormats[i];
-                if(fmt.code.match(/(?<!\\)[mdy]/) !== null) {
+                if(fmt.code.match(/[^\\][mdy]|^[mdy]/) !== null) {
                     dateStyles[fmt.id] = true;
                 }
             }
