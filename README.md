@@ -87,14 +87,32 @@ Description=Excel database upload endpoint
 After=network.target
 
 [Service]
+PermissionsStartOnly = true
+PIDFile = /run/excel/excel.pid
 WorkingDirectory=/path/to/excel-to-database
-ExecStart=venv/bin/gunicorn -w 4 -b 0:5000 app:app
+ExecStartPre = /bin/mkdir /run/excel
+ExecStartPre = /bin/chown -R excel:excel /run/excel
+# This line enables it to listen only on the loopback interface, which is what is necessary
+# if you have a reverse proxy (nginx) on the same machine to handle HTTPS for example
+ExecStart=venv/bin/gunicorn -w 4 -b 127.0.0.1:5000 app:app --pid /run/excel/excel.pid
+# This line is for the case when it has to listen to all network interfaces
+# ExecStart=venv/bin/gunicorn -w 4 -b 0:5000 app:app --pid /run/excel/excel.pid
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s HUP $MAINPID
+ExecStopPost=/bin/rm -rf /run/excel 
 Restart=on-abort
 User=excel
 Group=excel
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
+
+[Unit]
+Description=Excel database upload endpoint
+After=network.target
 ```
 
 ...if it's on Ubuntu or Debian, this file should be located at `/lib/systemd/system/excel.service`.
