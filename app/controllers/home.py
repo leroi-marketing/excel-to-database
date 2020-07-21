@@ -1,7 +1,7 @@
 from app import app
 from flask import render_template, flash, redirect, url_for, request, json
 from flask_login import login_required, current_user
-from app.data import sqlify, array2d_to_csv, destination_azuredw, destination_local, destination_redshift
+from app.data import sqlify, xsv_to_array2d, destination_azuredw, destination_local, destination_redshift, destination_snowflake
 from app.models.acl import User
 from config_local import Config
 import io
@@ -21,15 +21,18 @@ def upload():
         form_data = json.loads(request.data.decode('utf-8'))
         response_texts = []
         # write json data to csv
-        for sheet, sheet_data in form_data.items():
-            csv = array2d_to_csv(sheet_data)
+        for sheet, sheet_data in form_data["data"].items():
+            if form_data["type"] == "csv":
+                sheet_data = xsv_to_array2d(sheet_data)
             table_name = sqlify(sheet)
             if Config.DESTINATION == 'redshift':
-                response_texts.append(destination_redshift(csv, table_name, current_user.path))
+                response_texts.append(destination_redshift(sheet_data, table_name, current_user.path))
             elif Config.DESTINATION == 'azuredw':
-                response_texts.append(destination_azuredw(csv, table_name, current_user.path))
+                response_texts.append(destination_azuredw(sheet_data, table_name, current_user.path))
+            elif Config.DESTINATION == 'snowflake':
+                response_texts.append(destination_snowflake(sheet_data, table_name, current_user.path))
             else:
-                response_texts.append(destination_local(csv, table_name, current_user.path))
+                response_texts.append(destination_local(sheet_data, table_name, current_user.path))
         response = app.response_class(
             response=json.dumps(response_texts),
             status=200,
@@ -71,14 +74,17 @@ def submit():
             )
 
         # write json data to csv
-        tsv_data = io.StringIO(data['data'])
+        tsv_data = data['data']
+        data = xsv_to_array2d(tsv_data)
         table_name = sqlify(data['name'])
         if auth.destination == "redshift":
-            response_text = destination_redshift(tsv_data, table_name)
+            response_text = destination_redshift(data, table_name)
         elif auth.destination == 'azuredw':
-            response_text = destination_azuredw(tsv_data, table_name)
+            response_text = destination_azuredw(data, table_name)
+        elif auth.destination == 'snowflake':
+            response_text = destination_snowflake(data, table_name)
         else:
-            response_text = destination_local(tsv_data, table_name)
+            response_text = destination_local(data, table_name)
 
         return app.response_class(
             response=response_text,

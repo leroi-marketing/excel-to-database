@@ -74,11 +74,15 @@ $("document").ready(function() {
                 $("#error_div .error").html("");
                 $("#success_div .success").html("");
                 $("#submitbtn, #resetbtn").hide();
-                var payload = {};
+                var type = $("#sheet_selectors").data("type");
+                var payload = {
+                    data: {},
+                    type: type,
+                };
                 // Build payload from selected checkboxes
                 selected.each(function(index, cb) {
                     $cb = $(cb);
-                    payload[$cb.data('sheetName')] = $cb.data('data');
+                    payload.data[$cb.data('sheetName')] = $cb.data('data');
                 });
                 // Send data to the server
                 $.ajax({
@@ -111,7 +115,7 @@ $("document").ready(function() {
         });
 
         // This is called when data is decoded from a picked spreadsheet
-        function HandleData(data) {
+        function HandleData(data, type) {
             // Basically manipulate some DOM, create checkboxes for each sheet, attach data to the DOM.
             $("#submitbtn, #resetbtn").show();
             $("#excel, #excel + label").hide();
@@ -122,6 +126,7 @@ $("document").ready(function() {
             titleDom.after(newRowDim);
 
             var colDim = $('<div class="col-12" id="sheet_selectors">');
+            colDim.data("type", type);
             newRowDim.append(colDim);
 
             var id = 0;
@@ -131,7 +136,14 @@ $("document").ready(function() {
                     var cb = $('<input type="checkbox" class="sheet_selector" id="cb' + id + '"/>')
                     colDim.append(cb);
                     cb.after('<label for="cb' + id + '"></label><br/>');
-                    cb.next("label").text(sheetName + ' (' + data[sheetName].length + ' rows including header)');
+                    var sheetLength = 0;
+                    if(type == 'csv') {
+                        sheetLength = data[sheetName].split('\n').filter(line=>line).length;
+                    }
+                    else {
+                        sheetLength = data[sheetName].length;
+                    }
+                    cb.next("label").text(sheetName + ' (' + sheetLength + ' rows including header)');
 
                     cb.data("sheetName", sheetName);
                     cb.data("data", data[sheetName]);
@@ -144,11 +156,20 @@ $("document").ready(function() {
 
         // Process excel file that was picked in the web frontend
         function ProcessExcel(file) {
-            xlsxParser.parse(file).then(function(data) {
-                HandleData(data);
-            }, function(err) {
-                console.log('error', err);
-            });
+            if(file.name.toLowerCase().endsWith(".xlsx")) {
+                xlsxParser.parse(file).then(function(data) {
+                    HandleData(data, 'xlsx');
+                }, function(err) {
+                    console.log('error', err);
+                });
+            }
+            else if(file.name.toLowerCase().endsWith(".csv")) {
+                csvParser.parse(file).then(function(data) {
+                    HandleData(data, 'csv')
+                }, function(err) {
+                    console.log('error', err);
+                })
+            }
         }
 
         $form.on('drag dragstart dragend dragover dragenter dragleave drop', function(e) {

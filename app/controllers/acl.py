@@ -6,6 +6,7 @@ from app.view_models.acl import LoginForm
 from werkzeug.urls import url_parse
 import click
 import getpass
+import os
 
 
 @app.route('/login', methods=['GET', 'POST'])
