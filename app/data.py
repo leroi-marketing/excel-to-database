@@ -57,7 +57,7 @@ def generate_table_stmt(schema, table, columns, text_type_name='VARCHAR'):
     """gernerate a create table statement
     """
     alnum_columns = [to_alnum(column) for column in columns]
-    cols_type = ','.join([f'{col} {text_type_name}' for col in alnum_columns])
+    cols_type = ','.join([f'"{col}" {text_type_name}' for col in alnum_columns])
     return f'CREATE TABLE {schema}.{table}({cols_type})'
 
 
@@ -206,12 +206,20 @@ def destination_snowflake(data: List[List[str]], table_name: str, path: str):
     schema_name = 'x_excel'
 
     with snowflake.connector.connect(**Config.DB) as connection, tempfile.TemporaryDirectory() as tmpdir:
-        col_names = connection.execute(f'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE lower(TABLE_NAME)=\'{table_name}\'')
+        cursor = connection.cursor()
+        col_names = cursor.execute(f'''
+            SELECT
+                COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE
+                lower(TABLE_NAME)='{table_name}'
+                AND lower(TABLE_SCHEMA)='{schema_name}'
+        ''')
         col_names = [col_name.values()[0].lower() for col_name in col_names]
 
         # compare sorted and lower col names as it is tricky to control case and order (not an ideal solution)
         iterator = iter(data)
-        header = list(to_alnum(col).lower() for col in next(iterat0r))
+        header = list(to_alnum(col).lower() for col in next(iterator))
         n_records = len(data)
         if n_records:
             gzfilename = f"{tmpdir}/x_excel_data.csv.gz"
@@ -219,26 +227,25 @@ def destination_snowflake(data: List[List[str]], table_name: str, path: str):
                 writer = csv.writer(fp)
                 writer.writerows(iterator)
 
-            connection.execute(f'CREATE SCHEMA IF NOT EXISTS {schema_name}')
+            cursor.execute(f'CREATE SCHEMA IF NOT EXISTS {schema_name}')
 
             if sorted(col_names) == sorted(header):
                 # truncate if cols seem to be the same (will fail if only column order is changed)
                 action = 'Truncated'
-                connection.execute(f'TRUNCATE TABLE {schema_name}.{table_name}')
+                cursor.execute(f'TRUNCATE TABLE {schema_name}.{table_name}')
             else:
                 # drop if col names not the same
                 action = 'Dropped'
-                connection.execute(f'DROP TABLE IF EXISTS {schema_name}.{table_name} CASCADE')
-                connection.execute(generate_table_stmt(schema_name, table_name, header, text_type_name="TEXT"))
+                cursor.execute(f'DROP TABLE IF EXISTS {schema_name}.{table_name} CASCADE')
+                cursor.execute(generate_table_stmt(schema_name, table_name, header, text_type_name="TEXT"))
 
-            connection.execute(f'USE SCHEMA {schema_name}')
-            connection.cursor().execute(f'CREATE OR REPLACE TEMPORARY STAGE {table_name};')
-            connection.cursor().execute(f'PUT file://{gzfilename} @%{table_name}')
-            connection.cursor().execute(f'''
+            cursor.execute(f'USE SCHEMA {schema_name}')
+            cursor.execute(f'CREATE OR REPLACE TEMPORARY STAGE {table_name};')
+            cursor.execute(f'PUT file://{gzfilename} @%{table_name}')
+            cursor.execute(f'''
                 COPY INTO {table_name} file_format = (
                     TYPE = CSV
                     FIELD_OPTIONALLY_ENCLOSED_BY = '"'
-                    ERROR_ON_COLUMN_COUNT_MISMATCH = FALSE
                 )'''
             )
     return f'{action} and loaded into {schema_name}.{table_name}.\n{n_records} records loaded successfully.\n'
