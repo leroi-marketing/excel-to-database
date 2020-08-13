@@ -207,7 +207,7 @@ def destination_snowflake(data: List[List[str]], table_name: str, path: str):
 
     with snowflake.connector.connect(**Config.DB) as connection, tempfile.TemporaryDirectory() as tmpdir:
         cursor = connection.cursor()
-        col_names = cursor.execute(f'''
+        col_names_result = cursor.execute(f'''
             SELECT
                 COLUMN_NAME
             FROM INFORMATION_SCHEMA.COLUMNS
@@ -215,7 +215,7 @@ def destination_snowflake(data: List[List[str]], table_name: str, path: str):
                 lower(TABLE_NAME)='{table_name}'
                 AND lower(TABLE_SCHEMA)='{schema_name}'
         ''')
-        col_names = [col_name.values()[0].lower() for col_name in col_names]
+        col_names = [row[0].lower() for row in col_names_result]
 
         # compare sorted and lower col names as it is tricky to control case and order (not an ideal solution)
         iterator = iter(data)
