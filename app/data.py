@@ -29,7 +29,8 @@ def to_alnum(string):
 
 def xsv_to_array2d(in_xsv: str) -> List[List[str]]:
     # read max 10 lines and join them to make a sample for the dialect sniffer
-    xsv_stream = io.StringIO(in_xsv)
+    # Process without the empty lines at the beginning or end
+    xsv_stream = io.StringIO(in_xsv.strip('\n'))
     xsv_stream.seek(0)
     lines = []
     for i in range(10):
