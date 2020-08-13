@@ -20,5 +20,7 @@ RUN rm -rf app/static/.auto && mkdir -p app/static/.auto && \
     ln -s /excel-to-database/app/static/resources/@coreui/coreui-free-bootstrap-admin-template/src/img app/static/.auto/img && \
     ln -s /excel-to-database/app/static/resources/@coreui/coreui-free-bootstrap-admin-template/src/js app/static/.auto/js
 
+EXPOSE 5000
+
 ENTRYPOINT ["gunicorn"]
 CMD ["-w", "4", "-b", "0:5000", "--forwarded-allow-ips", "*", "app:app"]
