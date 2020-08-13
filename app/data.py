@@ -242,7 +242,10 @@ def destination_snowflake(data: List[List[str]], table_name: str, path: str):
 
             cursor.execute(f'USE SCHEMA {schema_name}')
             cursor.execute(f'CREATE OR REPLACE TEMPORARY STAGE {table_name};')
-            cursor.execute(f'PUT file://{gzfilename} @%{table_name}')
+            # Snowflake keeps old files uploaded in the stage, and the PUT command doesn't do anything if a file with
+            # the same name is already there
+            cursor.execute(f'REMOVE @%{table_name};')
+            cursor.execute(f'PUT file://{gzfilename} @%{table_name} OVERWRITE=TRUE')
             cursor.execute(f'''
                 COPY INTO {table_name} file_format = (
                     TYPE = CSV
