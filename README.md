@@ -37,13 +37,17 @@ source venv/bin/activate
 
 # Install dependencies
 pip install --upgrade -r requirements.txt
+```
 
+#### Configure
+
+Configure Flask App in the virtualenv:
+```sh
 # Add flask app info to venv, and re-activate environment
 echo "export FLASK_APP=app/app.py" >> venv/bin/activate
 source venv/bin/activate
 ```
 
-#### Configure
 Create `config_local.py` file in this directory, by making a copy of `config_local.py.example` and setting up the parameters.
 
 Create `auth/auth.json` with the contents:
@@ -61,7 +65,7 @@ for each user create a new record. The file is read during each authentication, 
 Meaning of each parameter:
 * `<username>` is the username used for login
 * `password_salt` is a random string. It's not a secret, can almost be public. Preferrably longer than 3 letters.
-* `password_hash` is a generated password hash. To generate it for a user, run `flask generate_pw_hash` with virtualenv activated
+* `password_hash` is a generated password hash. To generate it for a user, run `flask generate_pw_hash` with virtualenv activated. For this to work, the previous step in "Install dependencies"
 
 
 #### Run for development:

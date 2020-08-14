@@ -9,7 +9,8 @@ RUN apt-get update && apt-get -y install yarn
 
 RUN mkdir /excel-to-database
 WORKDIR /excel-to-database
-COPY config.py config_local.py .yarnrc package.json requirements.txt gunicorn.conf.py VBA auth ./
+COPY config.py config_local.py .yarnrc package.json requirements.txt gunicorn.conf.py VBA ./
+COPY ./auth auth
 COPY ./app app
 
 RUN pip install -r requirements.txt
