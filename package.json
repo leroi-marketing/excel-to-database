@@ -9,6 +9,6 @@
     "pace-progress": "1.0.2",
     "simple-line-icons": "2.4.1",
     "tinymce": "^4.7.7",
-    "zipjs": "https://github.com/gildas-lormeau/zip.js/"
+    "zipjs": "gildas-lormeau/zip.js#3e7920810f63d5057ef6028833243105521da369"
   }
 }
